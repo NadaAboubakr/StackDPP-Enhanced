@@ -3508,7 +3508,7 @@ def LPsePSSM(pssmFile):
                     for j in range(len(values)):
                         finalValues[str(n) + "_" + feature + "_" + str(j)] = values[j]
             except KeyError as e:
-                print((idx, e))
+                print((pssmFile, e))
                 
     return ([f for f in finalValues.keys()], [v for v in finalValues.values()])
 
@@ -3638,7 +3638,7 @@ from sklearn.ensemble import (AdaBoostClassifier, BaggingClassifier,
                               ExtraTreesClassifier, RandomForestClassifier,
                               StackingClassifier, VotingClassifier)
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (SCORERS, accuracy_score, average_precision_score,
+from sklearn.metrics import (accuracy_score, average_precision_score,
                              confusion_matrix, make_scorer, matthews_corrcoef,
                              precision_score, recall_score, roc_auc_score)
 from sklearn.model_selection import (GridSearchCV, LeaveOneOut,

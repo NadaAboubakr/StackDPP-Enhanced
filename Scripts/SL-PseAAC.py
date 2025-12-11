@@ -15,7 +15,7 @@ from sklearn.ensemble import (AdaBoostClassifier, BaggingClassifier,
                               ExtraTreesClassifier, RandomForestClassifier,
                               StackingClassifier, VotingClassifier)
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (SCORERS, accuracy_score, average_precision_score,
+from sklearn.metrics import (accuracy_score, average_precision_score,
                              confusion_matrix, make_scorer, matthews_corrcoef,
                              precision_score, recall_score, roc_auc_score)
 from sklearn.model_selection import (GridSearchCV, LeaveOneOut,
@@ -85,10 +85,10 @@ clfs = {
     'BG':
     BaggingClassifier(random_state=0),
     'BGsvmrbf':
-    BaggingClassifier(base_estimator=SVC(kernel='rbf',
-                                         random_state=0,
-                                         probability=True),
-                      random_state=0)
+    BaggingClassifier(estimator=SVC(kernel='rbf',
+                                    random_state=0,
+                                    probability=True),
+                     random_state=0)
 }
 
 
@@ -166,8 +166,9 @@ def JK(X, y, model, verbose = False):
 
 # In[8]:
 
+import os
 
-file_name = '../Features/rf452.npz'
+file_name = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'Features', 'rf452.npz')
 
 
 # In[9]:
@@ -237,11 +238,13 @@ print(report_jk)
 
 # In[14]:
 
+# Extract just the filename without path for CSV naming
+base_filename = os.path.splitext(os.path.basename(file_name))[0]
 
-# ranked_features.to_csv('Feature_ranking_' + file_name.split('.')[0] + '.csv', index = False)
-report_cv.to_csv('Report_CV_' + file_name.split('.')[0] + '.csv', index = False)
-report_ind.to_csv('Report_IND_' + file_name.split('.')[0] + '.csv', index=False)
-report_jk.to_csv('Report_JK_' + file_name.split('.')[0] + '.csv', index=False)
+# ranked_features.to_csv('Feature_ranking_' + base_filename + '.csv', index = False)
+report_cv.to_csv('Report_CV_' + base_filename + '.csv', index = False)
+report_ind.to_csv('Report_IND_' + base_filename + '.csv', index=False)
+report_jk.to_csv('Report_JK_' + base_filename + '.csv', index=False)
 
 
 # # Tuning
@@ -317,21 +320,28 @@ def JKSL(X, y, verbose=False):
     pred = []
 
     loo = LeaveOneOut()
-    model = get_super_learner(X, folds=10)
+    # Define the stacking ensemble as in the main code
+    level0 = [
+        ('VC', VotingClassifier([
+            ('DT', DecisionTreeClassifier(random_state=0)),
+            ('ABC', AdaBoostClassifier(random_state=0)),
+            ('LDA', LinearDiscriminantAnalysis()),
+        ], voting='soft', n_jobs=-1)),
+        ('svm(rbf, tuned)', SVC(kernel='rbf', C=5.44, gamma=.00237, random_state=0, probability=True))
+    ]
+    level1 = LogisticRegression(solver='liblinear', random_state=0)
 
-    dummy = np.zeros((len(X[0]), 9)).T
-
-    i = 0
     for train_idx, test_idx in loo.split(X):
-        print(i, end='\t')
-        i += 1
+        print(len(original), end='\t')
+        model = StackingClassifier(
+            estimators=level0,
+            final_estimator=level1,
+            stack_method='predict_proba',
+            cv=10
+        )
         model.fit(X[train_idx], y[train_idx])
-
         original.append(y[test_idx])
-
-        test_data = np.vstack([dummy, X[test_idx]])
-        #         print(test_data.shape)
-        pred.append(model.predict(test_data)[-1])
+        pred.append(model.predict(X[test_idx])[-1])
 
     return {
         'ACC(%)': accuracy_score(original, pred) * 100,
